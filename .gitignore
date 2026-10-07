@@ -1,0 +1,11 @@
+.DS_Store
+.build/
+.swiftpm/
+xcuserdata/
+DerivedData/
+*.xcworkspace/xcuserdata/
+*.xcodeproj/xcuserdata/
+
+# Local runtime artifacts (reserved for future implementation)
+.hub-agent/
+

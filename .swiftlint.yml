@@ -1,0 +1,17 @@
+included:
+  - Sources
+  - Tests
+
+excluded:
+  - .build
+
+line_length:
+  warning: 120
+  error: 140
+
+identifier_name:
+  min_length:
+    warning: 2
+
+trailing_whitespace:
+  ignores_empty_lines: true
