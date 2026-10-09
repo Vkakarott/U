@@ -1,0 +1,48 @@
+create @ROOT@ 100 30
+waitfor 10 %
+type printf '\\e[33myellow-before-vim\\e[0m\\n'; ls -G\r
+wait 1
+type vim Package.swift\r
+waitfor 10 PackageDescription
+wait 0.5
+compare vim-live
+reconnect
+attach 100 30
+wait 0.5
+compare vim-reattach
+screen
+type ityped-after-reattach\e
+wait 0.5
+expect typed-after-reattach
+compare vim-live-after-reattach
+type :q!\r
+waitfor 5 %
+wait 0.3
+compare shell-after-vim-exit
+screen
+type less docs/SPEC-V1.md\r
+waitfor 5 Spec da v1
+compare less-live
+reconnect
+attach 100 30
+wait 0.3
+compare less-reattach
+type  
+wait 0.3
+compare less-after-page-down
+type q
+wait 0.3
+type top\r
+waitfor 10 PID
+wait 1.5
+compare top-live
+reconnect
+attach 100 30
+wait 1.5
+compare top-reattach
+screen
+type q
+wait 0.5
+type exit\r
+wait 1
+list

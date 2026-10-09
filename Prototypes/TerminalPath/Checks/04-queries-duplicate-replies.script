@@ -1,0 +1,22 @@
+create @ROOT@ 100 30
+waitfor 10 %
+type q() { printf '\\e[6n'; IFS= read -rs -t 3 -d R pos; echo "$1=<${pos#*\\[}>"; }\r
+wait 0.5
+type clear\r
+wait 0.5
+answering daemon
+type q DAEMON_ONLY_ATTACHED\r
+waitfor 5 DAEMON_ONLY_ATTACHED=<
+wait 0.5
+answering app
+type q APP_ONLY_ATTACHED\r
+waitfor 5 APP_ONLY_ATTACHED=<
+wait 0.5
+answering both
+type q BOTH_ATTACHED\r
+waitfor 5 BOTH_ATTACHED=<
+wait 1
+screen
+# The duplicated reply leaks into the shell as if the user had typed it.
+expect ;1R
+kill

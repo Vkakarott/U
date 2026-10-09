@@ -1,0 +1,47 @@
+create @ROOT@ 100 30
+waitfor 10 %
+type echo SHELL=$SHELL ARGV0=$0; pwd; echo PATH=$PATH | cut -c1-200\r
+waitfor 5 ARGV0
+type clear; which claude codex; [[ -o login ]] && echo IS_LOGIN; [[ -o interactive ]] && echo IS_INTERACTIVE\r
+waitfor 5 IS_INTERACTIVE
+screen
+compare live-shell
+type printf '\\e[31mred \\e[1;32mboldgreen \\e[38;5;208morange256 \\e[38;2;10;200;250mtruecolor \\e[0;4;7munder-inverse\\e[0m plain\\n'\r
+type ls -la --color=always / | head -20; ls -G\r
+type echo 'wide: 日本語 emoji: 😀🎉 accents: ação é ü'\r
+type seq 1 400\r
+waitfor 5 400
+wait 0.5
+compare live-after-output
+detach
+reconnect
+attach 100 30
+wait 0.5
+compare reattach-shell
+expect 400
+type echo after-reattach-$((6*7))\r
+waitfor 5 after-reattach-42
+compare live-after-reattach
+type (sleep 2; echo printed-while-app-closed; printf '\\e[35mmagenta-late\\e[0m\\n') &\r
+wait 0.3
+reconnect
+wait 3
+attach 100 30
+wait 0.5
+expect printed-while-app-closed
+compare reattach-after-output-while-closed
+resize 132 40
+wait 0.5
+type clear; stty size\r
+waitfor 5 40 132
+compare after-resize
+type sleep 100\r
+wait 0.5
+type \x03
+type echo interrupted-ok\r
+waitfor 5 interrupted-ok
+type \e[A
+wait 0.3
+screen
+compare final
+stats

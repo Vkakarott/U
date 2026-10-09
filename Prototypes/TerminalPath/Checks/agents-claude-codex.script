@@ -1,0 +1,48 @@
+create @ROOT@ 110 34
+waitfor 10 %
+type printf '\\e[36mcyan-before-claude\\e[0m\\n'; ls -G\r
+wait 1
+type claude\r
+wait 12
+compare claude-live
+reconnect
+attach 110 34
+wait 1
+compare claude-reattach
+type /help
+wait 2
+reconnect
+attach 110 34
+wait 1
+compare claude-reattach-with-menu
+type \x03
+wait 1
+type /exit\r
+waitfor 15 %
+wait 0.5
+compare shell-after-claude-exit
+screen
+stats
+type codex\r
+wait 12
+screen
+compare codex-live
+reconnect
+attach 110 34
+wait 1
+compare codex-reattach
+type hello
+wait 1
+reconnect
+attach 110 34
+wait 1
+compare codex-reattach-with-text
+type \x03
+wait 1
+type \x03
+wait 3
+compare after-codex-exit
+screen
+stats
+type exit\r
+wait 1

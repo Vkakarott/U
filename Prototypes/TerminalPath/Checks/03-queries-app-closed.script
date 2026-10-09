@@ -1,0 +1,30 @@
+create @ROOT@ 100 30
+waitfor 10 %
+type q() { printf '\\e[6n'; IFS= read -rs -t 3 -d R pos; echo "$1=<${pos#*\\[}>"; }\r
+wait 0.5
+type clear\r
+wait 0.5
+answering app
+type sleep 1.5; q APP_ONLY_APP_CLOSED\r
+wait 0.2
+reconnect
+wait 6
+attach 100 30
+wait 0.5
+answering daemon
+type sleep 1.5; q DAEMON_ONLY_APP_CLOSED\r
+wait 0.2
+reconnect
+wait 6
+attach 100 30
+wait 0.5
+# Only the app answers and the app is closed: the program gets no reply.
+expect APP_ONLY_APP_CLOSED=<>
+# Only the daemon answers: the program is answered with the app closed.
+expect DAEMON_ONLY_APP_CLOSED=<
+reject DAEMON_ONLY_APP_CLOSED=<>
+screen
+type sleep 54321\r
+wait 0.5
+kill
+list

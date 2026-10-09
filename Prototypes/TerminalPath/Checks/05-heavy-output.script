@@ -1,0 +1,19 @@
+create @ROOT@ 120 40
+waitfor 10 %
+type clear; time (base64 -i /dev/urandom -b 100 | head -c 50000000 > /dev/null); echo BASELINE_DONE\r
+wait 6
+screen
+type clear; time (base64 -i /dev/urandom -b 100 | head -c 50000000); echo ATTACHED_DONE\r
+wait 14
+screen
+compare after-50MB-attached
+type clear; time (base64 -i /dev/urandom -b 100 | head -c 50000000); echo DETACHED_DONE\r
+wait 0.2
+reconnect
+wait 14
+attach 120 40
+wait 0.5
+screen
+compare reattach-after-50MB-detached
+stats
+kill
