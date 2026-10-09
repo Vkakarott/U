@@ -1,6 +1,6 @@
 # Plano de implementação
 
-Este plano segue [IDEIA.md](../IDEIA.md) e [SPEC-V1.md](SPEC-V1.md). As fases de v1 só começam após autorização explícita do Lucas. O repositório atual contém somente o esqueleto de módulos.
+Este plano segue [IDEIA.md](../IDEIA.md) e [SPEC-V1.md](SPEC-V1.md). Cada fase da v1 só começa após autorização explícita do Lucas. Estado atual: fase 0 concluída; fase 1 executada, com a parte de teste manual pendente; fase 2 não autorizada.
 
 ## Fase 0 — Esqueleto do repositório
 
@@ -26,6 +26,13 @@ Este plano segue [IDEIA.md](../IDEIA.md) e [SPEC-V1.md](SPEC-V1.md). As fases de
 
 **Escopo:** v1, mas o código do experimento pode ser removido depois da decisão.
 
+**Resultado:** executada em `Prototypes/TerminalPath`; detalhes na seção 11 do spec.
+
+- Respondido com teste automático: o terminal que vive no daemon funciona pelo protocolo; a tela restaurada sai idêntica com shell, vim, less, top, Claude Code e Codex; não há lacuna nem duplicação; A5 tem resposta (só o daemon responde); a versão do SwiftTerm indicada é a publicada 1.99.0; o shell de login a partir do launchd encontra `claude` e `codex`; o macOS pede permissão em nome do daemon, uma caixa por pasta protegida.
+- Pendente de teste manual pelo Lucas (roteiro em `Prototypes/TerminalPath/README.md`): o que aparece na janela, teclado de verdade, copiar e colar, foco entre SwiftUI e AppKit (R8) e atalhos do app.
+- Não testado, movido para a fase 3: daemon cujo arquivo fica dentro de `~/Documents`, nova pergunta de permissão ao recompilar, permissão negada.
+- A pasta do protótipo pode ser apagada quando a fase 2 tiver reaproveitado o que interessa (a peça da tela pronta, o rastreador de modos e os roteiros de teste).
+
 ## Fase 2 — Fundamentos permanentes do daemon e protocolo
 
 **Objetivo:** criar a base testável para sessões de terminal, sem interface de produto completa.
@@ -33,6 +40,8 @@ Este plano segue [IDEIA.md](../IDEIA.md) e [SPEC-V1.md](SPEC-V1.md). As fases de
 **Entrega:** `SessionManager`, abstrações de PTY e emulador sem interface, a peça que gera a tela pronta ao reanexar (P3), rótulo por sessão e registro das sessões que terminaram sozinhas (seção 5.4 do spec), protocolo binário versionado, servidor Unix socket com permissões do dono e cliente do daemon; limites de histórico e testes de enquadramento/versão.
 
 **Verificação:** testes cobrem criação, anexar/desanexar, entrada, saída, redimensionamento, término de sessão e incompatibilidade de protocolo. Uma sessão continua sendo lida sem cliente anexado.
+
+**Acrescentado pelo protótipo:** além do que está na entrega, a fase 2 precisa de: rastreador de modos próprio e cópia da tela escondida por programas de tela cheia (o SwiftTerm não expõe nenhum dos dois); reenvio da tela pronta depois de redimensionar; só o daemon responde às consultas dos programas, e o app envia as cores do tema ao daemon; encerramento de sessão em dois passos (desligamento, depois forçado); fila limitada para cliente lento; SwiftTerm 1.99.0 fixado e compilado com otimização também em desenvolvimento; a comparação célula a célula do protótipo como teste automático permanente. O SwiftLint entra nesta fase, com aviso ao Lucas antes de instalar.
 
 **Depende de:** decisão e aprendizados da Fase 1.
 
@@ -45,6 +54,8 @@ Este plano segue [IDEIA.md](../IDEIA.md) e [SPEC-V1.md](SPEC-V1.md). As fases de
 **Entrega:** integração com launchd, empacotamento da versão de uso como `.app` instalada num local estável (o pacote Swift sozinho gera só executáveis soltos), identidades separadas para daemon de desenvolvimento e de uso, socket/pastas/dados isolados, negociação de versão e fluxo confirmado para atualização e parada explícita.
 
 **Verificação:** fechar ou encerrar o app não mata uma sessão; desenvolvimento não encontra nem altera sessões de uso; incompatibilidade pede confirmação antes de trocar o daemon; shell de login encontra o ambiente esperado.
+
+**Acrescentado pelo protótipo:** o macOS mostra uma caixa de permissão em nome do daemon para cada pasta protegida, na primeira vez. Falta verificar aqui: daemon instalado dentro de `~/Documents`, se recompilar faz o macOS perguntar de novo (pesa no daemon de desenvolvimento) e o comportamento quando a permissão é negada.
 
 **Depende de:** Fase 2.
 

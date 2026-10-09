@@ -6,7 +6,8 @@ Como ler:
 
 - **Decisão**: fechada pelo Lucas. As que nasceram das questões Q1–Q12 de uma versão anterior deste spec levam o código da questão.
 - Os códigos P1–P6 e A1–A4 identificam decisões que começaram como propostas e perguntas deste spec e foram aceitas por ele. As P estão detalhadas na seção 7; a seção 8 resume todas.
-- **Ponto em aberto**: só resta o A5, na seção 9.
+- **Ponto em aberto**: só resta o A5, na seção 9, agora com a resposta que o protótipo deu.
+- A seção 11 registra o que o protótipo da fase 1 mostrou, separando o que foi verificado do que ainda depende de teste manual.
 - O que não tem marcação é desdobramento das decisões feito neste spec e pode ser revisto.
 
 ## 1. Objetivo
@@ -147,26 +148,21 @@ Regras:
 
 #### O que o SwiftTerm oferece para isso
 
-Verificado lendo o código-fonte do SwiftTerm (repositório `migueldeicaza/SwiftTerm`, commit `15fed4f` de 05/10/2026; a versão publicada mais recente é a 1.9.0). Nada foi compilado nem executado.
+Verificado lendo o código-fonte do SwiftTerm (repositório `migueldeicaza/SwiftTerm`) e, depois, com o protótipo da fase 1 compilado contra a versão 1.99.0. Correção de uma versão anterior deste texto: a versão publicada mais recente não é a 1.9.0, e sim a **1.99.0, de 08/10/2026**; a anterior é a 1.20.0, de agosto de 2026. O erro veio de uma listagem de versões ordenada como texto.
 
 Verificado:
 
 - O motor do emulador (`Terminal`) é separado da parte visual. Dá para criá-lo sem janela, alimentá-lo com bytes, redimensioná-lo e ler o conteúdo de cada célula, a posição do cursor e se a tela alternativa (usada por programas de tela cheia) está ativa.
 - Existe `HeadlessTerminal`, descrito na documentação como um terminal que roda um processo local sem exibição. Ele junta o motor a um `LocalProcess`, que cria o PTY e o processo. Está disponível no macOS.
 - O SwiftTerm traz o código de criação de PTY (`PseudoTerminalHelpers`, sobre `forkpty`).
-- `makeRenderSnapshot` devolve uma cópia estruturada da tela: células com texto e atributos, cursor, paleta e indicador de tela alternativa. Ela só existe no código mais recente do SwiftTerm: a versão publicada 1.9.0 (janeiro de 2026) não a tem. O motor sem janela, `HeadlessTerminal`, a leitura célula a célula e a criação de PTY existem também na 1.9.0.
+- `makeRenderSnapshot` devolve uma cópia estruturada da tela: células com texto e atributos, cursor, paleta e indicador de tela alternativa. Existe na 1.99.0 e não na 1.20.0. A peça do protótipo não precisou dela: usa só a leitura célula a célula, que existe nas duas.
 - `getBufferAsData` exporta o conteúdo só como texto puro, sem cores.
 - **Não existe** função que transforme o estado da tela em algo que outro emulador consiga carregar. O motor só recebe estado por bytes de terminal, e a cópia estruturada não tem formato de transporte nem caminho de volta para dentro de um emulador.
 - O pacote exige macOS 11 ou mais novo.
 
 Conclusão: o SwiftTerm serve para manter o estado da tela no daemon, mas não entrega a "tela pronta" sozinho. Falta uma peça nossa, que lê o estado do motor e gera os bytes de terminal que reconstroem aquela tela no emulador do app. É a mesma técnica do terminal do VS Code.
 
-Suposição, ainda não verificada:
-
-- que tudo o que essa peça precisa ler está acessível de fora do SwiftTerm, em especial os modos ativos (captura de mouse, colagem delimitada, modo das setas, protocolo de teclado estendido). Conteúdo, cores e cursor estão; os modos não foram conferidos um a um;
-- que a cópia estruturada cobre só a área visível, e o histórico acima dela precisa ser lido linha a linha;
-- que `HeadlessTerminal` deixa o daemon repassar os bytes brutos ao app ao mesmo tempo em que alimenta o motor. Se não deixar, o daemon combina `Terminal` e `LocalProcess` diretamente;
-- que a tela reconstruída fica idêntica em programas de tela cheia como Claude Code e Codex. Só um protótipo responde.
+O protótipo da fase 1 testou as suposições que estavam aqui. O resultado está na seção 11; em resumo: a peça funciona, os modos internos do SwiftTerm não são todos legíveis de fora (o daemon os acompanha por conta própria), e o daemon combina `Terminal` e `LocalProcess` diretamente em vez de usar `HeadlessTerminal`.
 
 A decisão é escrever essa peça (P3). As alternativas, se o protótipo mostrar que não serve:
 
@@ -343,7 +339,7 @@ Nasceram como propostas deste spec e foram todas aceitas pelo Lucas. Os códigos
 
 - Em cada sessão, o daemon alimenta um motor `Terminal` do SwiftTerm com a mesma saída que repassa ao app.
 - Ao anexar, uma peça própria lê o estado do motor (histórico, área visível, cores e atributos, cursor, tela alternativa, modos ativos) e gera os bytes de terminal que reconstroem essa tela. O app os entrega ao seu emulador como se fossem saída normal.
-- Versão do SwiftTerm: a peça pode ser escrita só com a leitura célula a célula, que existe na versão publicada 1.9.0, ou aproveitar a cópia estruturada, que exige fixar um commit ainda não publicado. O protótipo escolhe, e a versão fica fixada no pacote.
+- Versão do SwiftTerm: resultado do protótipo, a confirmar pelo Lucas: usar a **publicada 1.99.0, fixada exatamente** no pacote. Não é preciso código ainda não publicado. A 1.20.0 também serviria para a peça, mas não tem a trava que protege o emulador quando ele é lido e alimentado ao mesmo tempo.
 - Histórico com limite de linhas por sessão. O número é detalhe de implementação, a fixar no protótipo (o padrão do SwiftTerm é 500, pouco para uso com agentes).
 - O protótipo do risco R1 é quem confirma que a peça funciona. Base e limites do que foi verificado: seção 3.6.
 
@@ -436,7 +432,7 @@ Confirmado junto: o daemon de PTYs permanece na v1.
 
 ## 9. Ponto ainda em aberto
 
-Sobrou um, que fica aberto até o protótipo do risco R1.
+Sobrou um. O protótipo da fase 1 deu a resposta técnica; falta a confirmação do Lucas para virar decisão.
 
 ### A5 — Quem responde às consultas dos programas ao terminal
 
@@ -446,6 +442,16 @@ Com um emulador no daemon e outro no app, os dois responderiam à mesma consulta
 - **B. Só o app responde.** Mais simples. Custo: com o app fechado ninguém responde, e um programa que consulte o terminal nesse intervalo pode ficar esperando.
 
 É decisão técnica, a tomar com o resultado do protótipo.
+
+**Resultado do protótipo: opção A, só o daemon responde.** Medido com um programa que pergunta a posição do cursor:
+
+| Quem responde | App aberto | App fechado |
+|---|---|---|
+| Só o daemon | programa recebe a resposta | programa recebe a resposta |
+| Só o app | programa recebe a resposta | programa fica sem resposta até desistir |
+| Os dois | a resposta em dobro vaza para o shell como se fosse texto digitado e estraga o comando seguinte | — |
+
+O Claude Code fez 15 consultas só ao abrir e o Codex mais 6, então isso não é caso raro. O custo previsto se confirmou e tem solução: a visualização do SwiftTerm entrega as respostas do emulador por um caminho separado do teclado, que o app pode simplesmente ignorar (verificado que compila; o efeito na janela depende do teste manual). Resta um detalhe: o daemon informa aos programas a cor de fundo padrão dele, então o app precisa enviar as cores do tema ao daemon.
 
 ## 10. Riscos técnicos
 
@@ -459,7 +465,7 @@ O terminal passa por dois emuladores: o do daemon, sem interface, e o do app, qu
 - os dois emuladores sempre com o mesmo tamanho; qualquer diferença corrompe a tela restaurada;
 - a questão A5.
 
-É o maior risco da v1.
+Era o maior risco da v1. O protótipo da fase 1 o reduziu bastante: ver seção 11.
 
 ### R2 — Troca futura por libghostty
 
@@ -471,9 +477,13 @@ A `TerminalSurface` assume um emulador que aceita bytes de fora. A libghostty, a
 - As permissões de privacidade do macOS (acesso a Documentos, Mesa, Downloads) são atribuídas ao processo responsável. Com o daemon como pai dos shells, os pedidos de permissão passam a ser do daemon, não do app. O repositório do hub-agent fica dentro de `~/Documents`, então isso aparece no primeiro uso.
 - Sem assinatura (Q11), cada recompilação do daemon pode ser vista pelo macOS como um programa novo e pedir as permissões de novo. Afeta principalmente o daemon de desenvolvimento.
 
+Resultado do protótipo: o shell de login iniciado por um daemon do launchd carregou o ambiente do usuário e encontrou `claude` e `codex`. O macOS mostrou uma caixa de permissão em nome do daemon para cada pasta protegida (Documentos, Mesa, Downloads); depois de permitido, o acesso funcionou. Detalhes e o que ficou sem testar: seção 11.
+
 ### R4 — Criar PTY e processo em Swift
 
 Menor do que parecia: o SwiftTerm já traz esse código (verificado na seção 3.6) e ele pode ser usado no daemon. Segue precisando de teste: propagação de sinais, encerramento de tudo o que roda dentro do shell ao fechar a aba e detecção do fim do processo.
+
+Resultado do protótipo: criar o terminal com o código do SwiftTerm funcionou. Encerrar exigiu cuidado: o shell interativo ignora o pedido normal de término, então a sessão é encerrada com o sinal de desligamento (que o shell repassa ao que está rodando nele) e, se sobrar algo depois de um segundo, com encerramento forçado. Com isso não sobrou processo nos testes.
 
 ### R5 — Versões diferentes de app e daemon
 
@@ -482,6 +492,8 @@ Como o daemon sobrevive ao app, é normal um app novo conversar com um daemon an
 ### R6 — Memória no daemon
 
 O daemon continua lendo os PTYs com o app fechado ou lento. Cada sessão guarda um emulador inteiro com histórico. Um comando que gera saída sem parar não pode fazer a memória crescer sem limite nem travar as outras sessões: histórico com limite por sessão e descarte do mais antigo.
+
+Resultado do protótipo: com 5.000 linhas de histórico e 100 MB de saída, o daemon ficou em cerca de 23 MB de memória. A vazão passando pelos dois emuladores foi de cerca de 30 MB/s. Dois avisos: compilado sem otimização, o SwiftTerm cai para cerca de 1 MB/s, então o daemon precisa ser compilado com otimização mesmo em desenvolvimento; e no protótipo um cliente lento freia o terminal, o que a fase 2 precisa resolver com fila limitada.
 
 ### R7 — Queda do daemon
 
@@ -494,3 +506,60 @@ Com SwiftUI na estrutura e AppKit no terminal (Q9), foco e atalhos de teclado at
 ### R9 — Segurança do socket
 
 Quem consegue conectar ao socket consegue executar comandos como o usuário. Na v1: socket com permissão só para o dono. Quando o mobile entrar, o transporte de rede exige autenticação antes de qualquer mensagem.
+
+## 11. Resultados do protótipo (fase 1)
+
+Protótipo descartável em `Prototypes/TerminalPath`, com SwiftTerm 1.99.0, rodado em macOS 26.6.2. Os testes automáticos estão em `Prototypes/TerminalPath/Checks` e podem ser repetidos com `Checks/run.sh`.
+
+### Como foi verificado
+
+Um cliente sem janela faz o papel do app: mantém o seu próprio emulador, alimentado só pelo que o daemon envia, e compara o estado dele com o do daemon célula a célula (texto, cores, atributos, histórico, cursor e modos). Isso prova que os dois emuladores ficam com a mesma tela. **Não prova o que aparece desenhado na janela nem o comportamento do teclado**, que dependem do teste manual descrito em `Prototypes/TerminalPath/README.md`.
+
+### Verificado
+
+| O que | Resultado |
+|---|---|
+| Terminal que vive no daemon, usado por um cliente | Digitar, redimensionar, Ctrl-C e seta para cima funcionaram pelo protocolo. |
+| Tela ao vivo igual nos dois lados | Idêntica em todos os casos sem redimensionamento durante saída. |
+| Fechar e reabrir com shell simples | Tela e 405 linhas de histórico idênticas, com cores, acentos e emoji. |
+| Saída produzida com o app fechado | Aparece ao reabrir, idêntica. |
+| Fechar e reabrir com programa de tela cheia | Idêntica com vim, less, top, Claude Code 2.1.295 e Codex 0.160.1. Nenhum prompt foi enviado aos agentes; só as telas iniciais e menus. |
+| Sair do programa de tela cheia depois de reabrir | O shell que estava por trás volta idêntico, com cores. |
+| Sem lacuna nem duplicação entre tela pronta e saída ao vivo | Confirmado: as comparações continuam idênticas depois de reanexar e seguir usando. |
+| `exit` no terminal | O daemon avisa o cliente (base da A1). |
+| Encerrar sessão | Nenhum processo sobrou. |
+| Custo da tela pronta | 5.000 linhas de histórico: 514 KB, montada em 47 ms. |
+| Janela do protótipo | Abre, cria o terminal, e ao reabrir anexa ao terminal vivo e recebe a tela pronta (pelo registro do app, sem olhar a janela). |
+| Shell de login a partir do launchd | `claude` e `codex` encontrados; ambiente do usuário carregado. |
+
+### O que a peça precisou além do previsto
+
+- **Modos.** O SwiftTerm não expõe vários modos (cursor visível, teclado numérico de aplicação, aviso de foco e outros). O daemon passou a acompanhá-los lendo a própria saída do terminal.
+- **Tela escondida.** O SwiftTerm só expõe com cores a tela ativa. Quando um programa de tela cheia abre, o shell por trás fica inacessível com cores. O daemon guarda uma cópia dele no instante anterior à troca de tela. Limite conhecido: se a janela for redimensionada com o programa de tela cheia aberto, a posição do cursor dessa cópia pode ficar errada.
+- **Linha quebrada vazia.** Caso de borda corrigido na peça.
+- **Primeira linha do histórico.** Quando é a continuação de uma linha já descartada, a marca de "continuação" não pode ser reconstruída. Não afeta o que se vê.
+
+### Problemas encontrados
+
+- **Redimensionar durante saída.** O app muda de tamanho antes do daemon. O texto que sai nesse intervalo é disposto em larguras diferentes nos dois emuladores, e o histórico do app fica diferente do histórico do daemon até a próxima reconexão. Não acontece com o terminal parado. Correção proposta para a fase 2: depois de redimensionar, o daemon reenvia a tela pronta, com um pequeno atraso para não reenviar a cada passo do arraste.
+- **Cliente lento freia o terminal.** Ver R6.
+- **Compilação sem otimização.** Ver R6.
+
+### launchd e permissões do macOS
+
+Foi registrado um serviço temporário, `com.hubagent.prototype.phase1-daemon`, carregado de uma pasta temporária, sem nada gravado em `~/Library/LaunchAgents`. Ele foi removido ao fim do teste.
+
+- O daemon iniciou e ficou independente de qualquer app.
+- Ao entrar na pasta do projeto, dentro de `~/Documents`, o macOS mostrou uma caixa de permissão em nome do daemon. O mesmo aconteceu para a Mesa e para Downloads: **uma caixa por pasta protegida**, na primeira vez.
+- As três foram permitidas na tela em cerca de dois segundos cada, e o acesso funcionou. O teste do launchd foi interrompido nesse ponto.
+- O macOS guardou as permissões pelo caminho do arquivo do daemon.
+
+Não testado: daemon cujo arquivo fica dentro de `~/Documents`; se recompilar o daemon faz o macOS perguntar de novo; o que acontece quando a permissão é negada. Ficam para a fase 3.
+
+### Depende de teste manual
+
+Tudo o que exige olhar a janela ou usar o teclado de verdade: aparência do terminal, teclas especiais e acentos pelo teclado, copiar e colar, rolagem, foco entre a barra lateral e o terminal (R8), atalhos do app com o terminal em foco, e se a tela restaurada **parece** igual. O risco R8 continua sem verificação.
+
+### Só pacote Swift, sem projeto Xcode
+
+Confirmado para o protótipo: a janela SwiftUI com o terminal em AppKit compila e abre a partir do pacote, sem projeto Xcode. O empacotamento como `.app` continua para a fase 3.

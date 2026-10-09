@@ -8,6 +8,7 @@ App pessoal para macOS que organiza projetos e terminais. A fonte de verdade do 
 - `Sources/HubAgentDaemon`: executável separado dono das sessões de terminal; não conhece projetos, abas ou interface.
 - `Sources/HubAgentShared`: tipos compartilhados, começando pelo protocolo app–daemon; não depende de UI, PTY ou transporte concreto.
 - `Tests/*Tests`: testes por módulo.
+- `Prototypes/TerminalPath`: protótipo descartável da fase 1, num pacote Swift separado. Não é base para código permanente; leia o `README.md` dele antes de mexer.
 - `docs/`: especificação e plano de implementação.
 
 O repositório usa apenas Swift Package Manager. O pacote pode ser aberto diretamente no Xcode e preserva módulos, testes e executáveis separados sem manter um `.xcodeproj` duplicado. O pacote gera executáveis soltos, não um `.app`: o empacotamento da versão de uso está previsto na Fase 3 do plano. Criar um projeto Xcode só se essa etapa mostrar que é necessário.
