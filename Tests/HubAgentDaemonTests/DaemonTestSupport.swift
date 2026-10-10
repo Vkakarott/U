@@ -1,5 +1,6 @@
 import Foundation
 import HubAgentShared
+import Testing
 
 @testable import HubAgentDaemon
 
@@ -86,8 +87,8 @@ final class DaemonHarness {
     }
 
     /// Runs the body on the daemon's queue; safe to nest.
-    func sync<Value>(_ body: () -> Value) -> Value {
-        DispatchQueue.getSpecific(key: Self.queueKey) == queueIdentity ? body() : queue.sync(execute: body)
+    func sync<Value>(_ body: () throws -> Value) rethrows -> Value {
+        try DispatchQueue.getSpecific(key: Self.queueKey) == queueIdentity ? body() : queue.sync(execute: body)
     }
 
     /// The daemon-side emulator of the n-th session created.
@@ -96,11 +97,14 @@ final class DaemonHarness {
     }
 
     /// Polls a condition on the daemon's queue until it holds or the time runs out.
-    func eventually(timeout: TimeInterval = 10, _ condition: () -> Bool) -> Bool {
+    ///
+    /// The condition runs on the queue that also reads the terminals, so a costly
+    /// condition polled often starves them; raise `interval` for those.
+    func eventually(timeout: TimeInterval = 10, interval: TimeInterval = 0.02, _ condition: () -> Bool) -> Bool {
         let deadline = Date().addingTimeInterval(timeout)
         while Date() < deadline {
             if sync(condition) { return true }
-            Thread.sleep(forTimeInterval: 0.02)
+            Thread.sleep(forTimeInterval: interval)
         }
         return sync(condition)
     }
@@ -136,3 +140,11 @@ final class DaemonHarness {
 private final class EmulatorBox {
     var emulators: [SwiftTermHeadlessEmulator] = []
 }
+
+/// Parent of every suite that starts real terminals.
+///
+/// These tests block their thread while they wait for a terminal. Run all at once,
+/// they occupy the whole thread pool that the terminals' own I/O also needs and time
+/// out waiting for output that cannot be delivered. The daemon never blocks that
+/// pool, so this is a constraint of the tests, not of the product.
+@Suite(.serialized) struct TerminalTests {}
