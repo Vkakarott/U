@@ -1,13 +1,14 @@
 # hub-agent — Spec da v1
 
-Este documento detalha a v1 descrita em [IDEIA.md](../IDEIA.md). A ordem de construção está em [PLANO-IMPLEMENTACAO.md](PLANO-IMPLEMENTACAO.md). O repositório tem hoje só o esqueleto de módulos: nenhuma funcionalidade da v1 (terminal, daemon, interface, protocolo) deve ser implementada antes da autorização do Lucas.
+Este documento detalha a v1 descrita em [IDEIA.md](../IDEIA.md). A ordem de construção está em [PLANO-IMPLEMENTACAO.md](PLANO-IMPLEMENTACAO.md). Estado: as fases 1 (protótipo) e 2 (base do daemon e do protocolo) foram executadas; a interface, o launchd e o armazenamento de projetos ainda não existem. Cada fase só começa com autorização do Lucas.
 
 Como ler:
 
 - **Decisão**: fechada pelo Lucas. As que nasceram das questões Q1–Q12 de uma versão anterior deste spec levam o código da questão.
 - Os códigos P1–P6 e A1–A4 identificam decisões que começaram como propostas e perguntas deste spec e foram aceitas por ele. As P estão detalhadas na seção 7; a seção 8 resume todas.
 - **Ponto em aberto**: só resta o A5, na seção 9, agora com a resposta que o protótipo deu.
-- A seção 11 registra o que o protótipo da fase 1 mostrou, separando o que foi verificado do que ainda depende de teste manual.
+- A seção 11 registra o que o protótipo da fase 1 mostrou, separando o que foi verificado do que ainda depende de teste manual. A seção 12 registra o que a fase 2 construiu.
+- **Hipótese de trabalho**: duas escolhas em uso no código que ainda aguardam confirmação explícita do Lucas: só o daemon responde às consultas dos programas (A5) e SwiftTerm 1.99.0 fixado. A seção 12 diz quanto custa reverter cada uma.
 - O que não tem marcação é desdobramento das decisões feito neste spec e pode ser revisto.
 
 ## 1. Objetivo
@@ -339,7 +340,7 @@ Nasceram como propostas deste spec e foram todas aceitas pelo Lucas. Os códigos
 
 - Em cada sessão, o daemon alimenta um motor `Terminal` do SwiftTerm com a mesma saída que repassa ao app.
 - Ao anexar, uma peça própria lê o estado do motor (histórico, área visível, cores e atributos, cursor, tela alternativa, modos ativos) e gera os bytes de terminal que reconstroem essa tela. O app os entrega ao seu emulador como se fossem saída normal.
-- Versão do SwiftTerm: resultado do protótipo, a confirmar pelo Lucas: usar a **publicada 1.99.0, fixada exatamente** no pacote. Não é preciso código ainda não publicado. A 1.20.0 também serviria para a peça, mas não tem a trava que protege o emulador quando ele é lido e alimentado ao mesmo tempo.
+- Versão do SwiftTerm: **hipótese de trabalho, aguarda confirmação explícita do Lucas.** A fase 2 usa a publicada 1.99.0, fixada exatamente no pacote. Não é preciso código ainda não publicado. A 1.20.0 também serviria para a peça, mas não tem a trava que protege o emulador quando ele é lido e alimentado ao mesmo tempo. Custo de reverter: seção 12.
 - Histórico com limite de linhas por sessão. O número é detalhe de implementação, a fixar no protótipo (o padrão do SwiftTerm é 500, pouco para uso com agentes).
 - O protótipo do risco R1 é quem confirma que a peça funciona. Base e limites do que foi verificado: seção 3.6.
 
@@ -432,7 +433,7 @@ Confirmado junto: o daemon de PTYs permanece na v1.
 
 ## 9. Ponto ainda em aberto
 
-Sobrou um. O protótipo da fase 1 deu a resposta técnica; falta a confirmação do Lucas para virar decisão.
+Sobrou um. O protótipo da fase 1 deu a resposta técnica e a fase 2 foi construída com ela como **hipótese de trabalho**. Aguarda confirmação explícita do Lucas; o custo de reverter está na seção 12.
 
 ### A5 — Quem responde às consultas dos programas ao terminal
 
@@ -563,3 +564,71 @@ Tudo o que exige olhar a janela ou usar o teclado de verdade: aparência do term
 ### Só pacote Swift, sem projeto Xcode
 
 Confirmado para o protótipo: a janela SwiftUI com o terminal em AppKit compila e abre a partir do pacote, sem projeto Xcode. O empacotamento como `.app` continua para a fase 3.
+
+## 12. O que a fase 2 construiu
+
+Base permanente do daemon e do protocolo, sem interface, sem launchd e sem armazenamento de projetos. Tudo coberto por testes automáticos (`make check`).
+
+### Peças
+
+| Peça | Onde | O que faz |
+|---|---|---|
+| Protocolo | `HubAgentShared` | Mensagens, formato binário e acordo de versão. Não depende de transporte. |
+| Transporte | `HubAgentTransport` | Unix socket local, só para o dono, usado pelo servidor do daemon e pelo cliente do app. |
+| Emulador sem interface | `HubAgentDaemon/Emulator` | Estado da tela, tela pronta, acompanhamento de modos, cópia do shell escondido por programas de tela cheia. Fica atrás da interface `HeadlessEmulator`. |
+| Sessões | `HubAgentDaemon/Sessions` | Terminal de verdade, shell de login, `SessionManager`, rótulo por sessão, registro das sessões que terminaram. |
+| Servidor | `HubAgentDaemon/Server` | Aceita clientes no socket, exige o acordo de versão, fila de saída limitada por cliente. |
+| Cliente do app | `HubAgentApp/DaemonClient.swift` | Conecta, acorda a versão, envia e recebe mensagens. Sem interface. |
+
+### Mensagens do protocolo (versão 1)
+
+- App para o daemon: apresentação com as versões que entende, criar sessão, listar, anexar, desanexar, entrada, redimensionar, encerrar, confirmar que viu o fim de uma sessão, informar as cores do tema.
+- Daemon para o app: boas-vindas com a versão acordada, recusa por versão incompatível, sessão criada, lista de sessões, tela pronta, saída, sessão encerrada, desanexado (a pedido ou porque outro cliente assumiu), falha.
+
+A lista da P2 ganhou três mensagens: confirmar o fim de uma sessão (para o daemon poder esquecê-la, seção 5.4), cores do tema (A5) e tela pronta como mensagem própria, usada ao anexar, depois de redimensionar e para alcançar um cliente atrasado.
+
+### Como os achados da fase 1 foram tratados
+
+| Achado | Tratamento | Teste |
+|---|---|---|
+| Redimensionar durante saída deixa os dois lados diferentes | Depois de redimensionar, o daemon reenvia a tela pronta, com 150 ms de espera para não reenviar a cada passo do arraste. | Redimensiona no meio de uma enxurrada de texto e confere que os dois lados terminam idênticos. |
+| Cliente lento freia o terminal | Fila de saída limitada por cliente (4 MB). Passou do limite, a saída para aquele cliente é descartada e, quando ele volta a ler, recebe a tela pronta. O terminal nunca espera. | Cliente que não lê nada enquanto saem 2 MB: o terminal termina, e o cliente depois fica idêntico ao daemon. |
+| Encerrar terminal | Dois passos: desligamento e, se o shell ignorar, encerramento forçado depois de 1 s. | Shell comum e shell que ignora o desligamento. |
+| Modos do terminal | Rastreador próprio, lendo a saída. | Testes unitários e de restauração. |
+| Shell escondido por programa de tela cheia | Cópia tirada no instante anterior à troca de tela. | Restaura e sai do programa: o shell volta com cores. |
+| Só o daemon responde às consultas | O emulador do daemon responde; o app informa as cores do tema. | Programa pergunta a posição do cursor sem nenhum cliente anexado e recebe a resposta. |
+
+### Defeitos que os testes encontraram
+
+- **Tela pronta com programa de tela cheia.** A tela pronta começa com um reinício do emulador, e o SwiftTerm só aplica esse reinício ao fim de cada entrega de bytes, descartando uma sequência deixada pela metade. A troca para a tela cheia se perdia. O protótipo não pegou porque entregava tudo de uma vez. Corrigido cortando as entregas em pontos seguros.
+- **Tela pronta sobre um cliente que já tinha conteúdo.** Um reinício dado dentro da tela cheia não limpava o histórico por trás. Corrigido saindo da tela cheia antes de reiniciar.
+- **Permissões de arquivo.** A criação do socket mexia, por um instante, numa configuração global do processo que define as permissões de tudo o que é criado. Um terminal aberto nesse instante herdaria a configuração errada. Corrigido: o socket recebe a permissão certa sem tocar na configuração global.
+- **Mensagens perdidas no cliente.** Mensagens que chegavam coladas na resposta de boas-vindas eram descartadas. Corrigido.
+- **Daemon não parava.** Ignorava o sinal de término. Corrigido e coberto por um teste que sobe e para o executável de verdade.
+- **Sockets herdados.** Os programas abertos nos terminais herdavam os sockets do daemon. Corrigido.
+
+### Hipóteses de trabalho e custo de reverter
+
+| Hipótese | Se o Lucas decidir o contrário | Custo |
+|---|---|---|
+| Só o daemon responde às consultas (A5) | O daemon deixa de repassar as respostas do seu emulador ao terminal, e o app passa a enviar as do emulador dele como entrada comum. | Pequeno no daemon: um ponto no código e dois testes. O protocolo não muda. Volta o problema medido no protótipo: com o app fechado, os programas ficam sem resposta. A mensagem de cores do tema perde a função. |
+| SwiftTerm 1.99.0 fixado | Trocar o número no pacote e adaptar quatro arquivos do daemon, que ficam atrás de duas interfaces (`HeadlessEmulator` e `PseudoTerminal`). | Cerca de um dia, quase todo em reexecutar e ajustar os testes de restauração, porque o comportamento do reinício do emulador e a trava de acesso mudam entre versões. O resto do daemon, o protocolo e o app não mudam. |
+
+### Valores provisórios
+
+Escolhidos para a fase 2 funcionar; nenhum foi discutido com o Lucas.
+
+- Histórico por terminal: 10.000 linhas.
+- Espera antes de reenviar a tela depois de redimensionar: 150 ms.
+- Limite da fila de saída por cliente: 4 MB.
+- Prazo para o encerramento forçado: 1 s.
+- Socket do daemon quando nenhum é informado: um arquivo na pasta temporária do usuário. O lugar definitivo é assunto da fase 3.
+
+### Não verificado ou conhecido
+
+- Nada de janela, teclado, foco ou atalhos: a fase 2 não tem interface, e o teste manual do protótipo ainda não foi reportado.
+- Nada de launchd nem de permissões do macOS: os testes sobem o daemon como processo comum, em pastas temporárias.
+- Se a pasta do projeto existir mas não permitir entrada, o SwiftTerm abre o shell na pasta do próprio daemon sem avisar. A regra A4 hoje cobre só a pasta que não existe.
+- Se a janela for redimensionada com um programa de tela cheia aberto, a posição do cursor do shell escondido pode voltar errada ao sair do programa.
+- Os testes que abrem terminais rodam um de cada vez. Em paralelo eles ocupam toda a reserva de execução do processo de teste e estouram o tempo. O daemon não bloqueia essa reserva, então isso é limite dos testes, mas não foi provado com o daemon sob carga real.
+- Não foi verificado se um terminal novo herda os descritores dos terminais já abertos; os sockets do daemon não são mais herdados.

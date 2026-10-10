@@ -1,6 +1,6 @@
 # Plano de implementação
 
-Este plano segue [IDEIA.md](../IDEIA.md) e [SPEC-V1.md](SPEC-V1.md). Cada fase da v1 só começa após autorização explícita do Lucas. Estado atual: fase 0 concluída; fase 1 executada, com a parte de teste manual pendente; fase 2 não autorizada.
+Este plano segue [IDEIA.md](../IDEIA.md) e [SPEC-V1.md](SPEC-V1.md). Cada fase da v1 só começa após autorização explícita do Lucas. Estado atual: fase 0 concluída; fase 1 executada, com a parte de teste manual pendente; fase 2 executada; fase 3 não autorizada.
 
 ## Fase 0 — Esqueleto do repositório
 
@@ -43,6 +43,13 @@ Este plano segue [IDEIA.md](../IDEIA.md) e [SPEC-V1.md](SPEC-V1.md). Cada fase d
 
 **Acrescentado pelo protótipo:** além do que está na entrega, a fase 2 precisa de: rastreador de modos próprio e cópia da tela escondida por programas de tela cheia (o SwiftTerm não expõe nenhum dos dois); reenvio da tela pronta depois de redimensionar; só o daemon responde às consultas dos programas, e o app envia as cores do tema ao daemon; encerramento de sessão em dois passos (desligamento, depois forçado); fila limitada para cliente lento; SwiftTerm 1.99.0 fixado e compilado com otimização também em desenvolvimento; a comparação célula a célula do protótipo como teste automático permanente. O SwiftLint entra nesta fase, com aviso ao Lucas antes de instalar.
 
+**Resultado:** executada; detalhes na seção 12 do spec.
+
+- Entregue: protocolo binário com acordo de versão, transporte por Unix socket só para o dono, emulador sem interface com tela pronta, sessões com shell de login, `SessionManager`, servidor, cliente do app e os tratamentos dos achados da fase 1. SwiftLint 0.65.1 instalado pelo Homebrew e em uso no `make check`.
+- Verificado por teste automático: tudo o que a verificação desta fase pede, mais um teste que sobe o executável do daemon, usa um terminal pelo cliente do app e o encerra.
+- Em uso como hipótese de trabalho, aguardando confirmação explícita do Lucas: só o daemon responde às consultas dos programas, e SwiftTerm 1.99.0 fixado.
+- Fora desta fase por decisão: nada de launchd, de permissões do macOS nem de janela.
+
 **Depende de:** decisão e aprendizados da Fase 1.
 
 **Escopo:** v1. WebSocket, autenticação e múltiplos clientes ficam para depois.
@@ -54,6 +61,8 @@ Este plano segue [IDEIA.md](../IDEIA.md) e [SPEC-V1.md](SPEC-V1.md). Cada fase d
 **Entrega:** integração com launchd, empacotamento da versão de uso como `.app` instalada num local estável (o pacote Swift sozinho gera só executáveis soltos), identidades separadas para daemon de desenvolvimento e de uso, socket/pastas/dados isolados, negociação de versão e fluxo confirmado para atualização e parada explícita.
 
 **Verificação:** fechar ou encerrar o app não mata uma sessão; desenvolvimento não encontra nem altera sessões de uso; incompatibilidade pede confirmação antes de trocar o daemon; shell de login encontra o ambiente esperado.
+
+**Herdado da fase 2:** o lugar definitivo do socket e das pastas do daemon (hoje um arquivo provisório na pasta temporária); a versão do daemon informada no acordo de versão, que é a base do fluxo de atualização; compilar o daemon de desenvolvimento com otimização (`make run-daemon` já faz); o caso da pasta que existe mas não permite entrada, em que o shell abre na pasta do daemon sem avisar; e as duas hipóteses de trabalho que aguardam confirmação.
 
 **Acrescentado pelo protótipo:** o macOS mostra uma caixa de permissão em nome do daemon para cada pasta protegida, na primeira vez. Falta verificar aqui: daemon instalado dentro de `~/Documents`, se recompilar faz o macOS perguntar de novo (pesa no daemon de desenvolvimento) e o comportamento quando a permissão é negada.
 
