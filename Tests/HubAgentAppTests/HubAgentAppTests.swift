@@ -6,7 +6,7 @@ import Testing
 @testable import HubAgentApp
 
 /// Collects what a `DaemonClient` delivers, for a test thread to wait on.
-private final class Inbox: @unchecked Sendable {
+final class Inbox: @unchecked Sendable {
     private let condition = NSCondition()
     private var messages: [DaemonMessage] = []
     private var disconnects: [Error?] = []
@@ -48,7 +48,7 @@ private final class Inbox: @unchecked Sendable {
 }
 
 /// A scripted daemon: accepts one client, reads its hello and answers with `reply`.
-private final class ScriptedDaemon: @unchecked Sendable {
+final class ScriptedDaemon: @unchecked Sendable {
     let path = NSTemporaryDirectory() + "hubagent-app-test-\(UUID().uuidString.prefix(8)).sock"
     private let listener: Int32
     private(set) var hello: ClientMessage?
@@ -125,28 +125,32 @@ private final class ScriptedDaemon: @unchecked Sendable {
     }
 }
 
+enum BuiltProducts {
+    /// The directory holding the built products, found from the test bundle's path.
+    static func directory() -> URL? {
+        let candidates = Bundle.allBundles.map(\.bundlePath) + CommandLine.arguments
+        guard let bundle = candidates.first(where: { $0.contains(".xctest") }),
+            let range = bundle.range(of: ".xctest")
+        else { return nil }
+        return URL(fileURLWithPath: String(bundle[..<range.upperBound])).deletingLastPathComponent()
+    }
+
+    static var daemonPath: String { directory()?.appendingPathComponent("HubAgentDaemon").path ?? "" }
+}
+
 /// The real daemon executable, started as a separate process on a private socket.
 private final class DaemonProcess {
     let socketPath = NSTemporaryDirectory() + "hubagent-app-test-\(UUID().uuidString.prefix(8)).sock"
     private let process = Process()
 
     init() throws {
-        process.executableURL = try #require(Self.productsDirectory()).appendingPathComponent("HubAgentDaemon")
+        process.executableURL = try #require(BuiltProducts.directory()).appendingPathComponent("HubAgentDaemon")
         process.arguments = ["--socket", socketPath]
         try process.run()
         let deadline = Date().addingTimeInterval(10)
         while !FileManager.default.fileExists(atPath: socketPath), Date() < deadline {
             Thread.sleep(forTimeInterval: 0.02)
         }
-    }
-
-    /// The directory holding the built products, found from the test bundle's path.
-    private static func productsDirectory() -> URL? {
-        let candidates = Bundle.allBundles.map(\.bundlePath) + CommandLine.arguments
-        guard let bundle = candidates.first(where: { $0.contains(".xctest") }),
-            let range = bundle.range(of: ".xctest")
-        else { return nil }
-        return URL(fileURLWithPath: String(bundle[..<range.upperBound])).deletingLastPathComponent()
     }
 
     /// Asks the daemon to stop and reports whether it exited and removed its socket.
