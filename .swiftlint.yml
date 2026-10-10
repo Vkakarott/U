@@ -15,3 +15,21 @@ identifier_name:
 
 trailing_whitespace:
   ignores_empty_lines: true
+
+# swift-format adds trailing commas to multi-line collections; keep both tools in agreement.
+trailing_comma:
+  mandatory_comma: true
+
+# A flat switch over message kinds is not complex code.
+cyclomatic_complexity:
+  ignores_case_statements: true
+
+custom_rules:
+  no_print:
+    name: "No print in production code"
+    included: "Sources/.*\\.swift"
+    regex: "\\b(print|debugPrint|NSLog)\\s*\\("
+    match_kinds:
+      - identifier
+    message: "Use Logger instead of print."
+    severity: error
