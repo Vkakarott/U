@@ -68,6 +68,7 @@ extension ClientMessage {
         case terminate = 8
         case acknowledgeExit = 9
         case setTheme = 10
+        case shutdown = 11
     }
 
     public func encodedBody() -> [UInt8] {
@@ -82,6 +83,7 @@ extension ClientMessage {
         case .terminate(let sessionId): return Self.body(.terminate, sessionId)
         case .acknowledgeExit(let sessionId): return Self.body(.acknowledgeExit, sessionId)
         case .setTheme(let colors): return Self.body(.setTheme, json: colors)
+        case .shutdown: return BodyWriter(kind: Kind.shutdown.rawValue).bytes
         }
     }
 
@@ -100,6 +102,7 @@ extension ClientMessage {
         case .terminate: self = .terminate(sessionId: try reader.sessionId())
         case .acknowledgeExit: self = .acknowledgeExit(sessionId: try reader.sessionId())
         case .setTheme: self = .setTheme(try reader.json(ThemeColors.self))
+        case .shutdown: self = .shutdown
         }
     }
 

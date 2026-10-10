@@ -26,6 +26,7 @@ private let descriptor = SessionDescriptor(
         .setTheme(
             ThemeColors(
                 foreground: .init(red: 230, green: 230, blue: 230), background: .init(red: 10, green: 20, blue: 30))),
+        .shutdown,
     ]
 
     @Test(arguments: samples)
@@ -51,6 +52,7 @@ private let descriptor = SessionDescriptor(
 @Suite struct DaemonMessageCoding {
     static let samples: [DaemonMessage] = [
         .welcome(WelcomeReply(protocolVersion: 1, daemonVersion: "0.1.0")),
+        .welcome(WelcomeReply(protocolVersion: 1, daemonVersion: "0.3.0", installation: .development, processId: 77)),
         .rejected(RejectedReply(reason: "too old", daemonProtocolVersion: 4, daemonMinimumProtocolVersion: 3)),
         .sessionCreated(SessionCreatedReply(requestId: 7, session: descriptor)),
         .sessions([descriptor, descriptor]),
@@ -121,5 +123,52 @@ private let descriptor = SessionDescriptor(
         let agreed = ProtocolVersion.negotiate(
             peerCurrent: ProtocolVersion.current, peerMinimum: ProtocolVersion.minimumSupported)
         #expect(agreed == ProtocolVersion.current)
+    }
+}
+
+@Suite struct InstallationIdentity {
+    @Test func theTwoCopiesShareNothing() {
+        let production = Installation(kind: .production, homeDirectory: "/Users/someone")
+        let development = Installation(kind: .development, homeDirectory: "/Users/someone")
+        let paths: [KeyPath<Installation, String>] = [
+            \.launchdLabel, \.supportDirectory, \.socketPath, \.lockPath, \.daemonLogPath, \.projectsFilePath,
+            \.launchAgentPath,
+        ]
+        for path in paths { #expect(production[keyPath: path] != development[keyPath: path]) }
+    }
+
+    @Test func socketPathsFitTheSystemLimit() {
+        for kind in InstallationKind.allCases {
+            let installation = Installation(kind: kind, homeDirectory: "/Users/a-rather-long-account-name")
+            #expect(installation.socketPath.utf8.count < 104)
+        }
+    }
+
+    @Test func runningFromSourceIsDevelopment() {
+        #expect(Installation.kind(environment: [:], bundleIdentifier: nil) == .development)
+        #expect(Installation.kind(environment: [:], bundleIdentifier: "com.apple.dt.Xcode") == .development)
+    }
+
+    @Test func thePackagedAppIsProduction() {
+        let identifier = Installation.productionBundleIdentifier
+        #expect(Installation.kind(environment: [:], bundleIdentifier: identifier) == .production)
+    }
+
+    @Test func anExplicitChoiceWins() {
+        let identifier = Installation.productionBundleIdentifier
+        let variable = Installation.environmentVariable
+        #expect(Installation.kind(environment: [variable: "development"], bundleIdentifier: identifier) == .development)
+        #expect(Installation.kind(environment: [variable: "production"], bundleIdentifier: nil) == .production)
+        #expect(Installation.kind(environment: [variable: "nonsense"], bundleIdentifier: nil) == .development)
+    }
+
+    @Test func aWelcomeFromAnOlderDaemonStillDecodes() throws {
+        let old = Array(#"{"protocolVersion":1,"daemonVersion":"0.2.0"}"#.utf8)
+        let message = try DaemonMessage(body: [101] + old)
+        #expect(message == .welcome(WelcomeReply(protocolVersion: 1, daemonVersion: "0.2.0")))
+    }
+
+    @Test func shutdownKeepsItsEncoding() {
+        #expect(ClientMessage.shutdown.encodedBody() == [11])
     }
 }

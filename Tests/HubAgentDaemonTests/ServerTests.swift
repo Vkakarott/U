@@ -120,7 +120,12 @@ extension TerminalTests {
             let client = try SocketClient(path: harness.path, hello: nil)
             try client.send(.hello(HelloRequest(clientName: "tests")))
             let reply = try client.next()
-            #expect(reply == .welcome(WelcomeReply(protocolVersion: ProtocolVersion.current, daemonVersion: "0.2.0")))
+            #expect(
+                reply
+                    == .welcome(
+                        WelcomeReply(
+                            protocolVersion: ProtocolVersion.current, daemonVersion: HubAgentVersion.current,
+                            processId: getpid())))
         }
 
         @Test func rejectsAnIncompatibleClientAndClosesTheConnection() throws {

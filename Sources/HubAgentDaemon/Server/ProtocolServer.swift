@@ -13,6 +13,8 @@ final class ProtocolServer: @unchecked Sendable {
     private let configuration: ServerConfiguration
     private var acceptSource: DispatchSourceRead?
     private var connections: [ObjectIdentifier: ClientConnection] = [:]
+    /// Called when a client asks the daemon to stop.
+    var onShutdownRequest: (() -> Void)?
     private let logger = Logger(subsystem: "com.hubagent.daemon", category: "server")
 
     init(
@@ -39,9 +41,17 @@ final class ProtocolServer: @unchecked Sendable {
 
     /// Stops listening and drops every client. Sessions are not touched.
     func stop() {
-        acceptSource?.cancel()
-        acceptSource = nil
+        stopListening()
         for connection in Array(connections.values) { connection.close() }
+    }
+
+    /// Refuses new clients but keeps the connected ones. Used while the daemon winds
+    /// down: a client sees its connection end only when the process is really gone,
+    /// which is when a replacement daemon can start.
+    func stopListening() {
+        guard let source = acceptSource else { return }
+        source.cancel()
+        acceptSource = nil
         unlink(socketPath)
     }
 
@@ -51,7 +61,8 @@ final class ProtocolServer: @unchecked Sendable {
         while let descriptor = UnixSocket.accept(listener: listener) {
             let connection = ClientConnection(
                 descriptor: descriptor, queue: queue, manager: manager, configuration: configuration,
-                onClose: { [weak self] in self?.connections[ObjectIdentifier($0)] = nil })
+                onClose: { [weak self] in self?.connections[ObjectIdentifier($0)] = nil },
+                onShutdownRequest: { [weak self] in self?.onShutdownRequest?() })
             connections[ObjectIdentifier(connection)] = connection
             connection.start()
         }

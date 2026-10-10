@@ -20,10 +20,19 @@ public struct WelcomeReply: Codable, Sendable, Equatable {
     /// The version both sides agreed on.
     public var protocolVersion: UInt16
     public var daemonVersion: String
+    /// Which copy of hub-agent the daemon belongs to. Absent only when the daemon was
+    /// started on an explicit socket, outside any installation.
+    public var installation: InstallationKind?
+    public var processId: Int32?
 
-    public init(protocolVersion: UInt16, daemonVersion: String) {
+    public init(
+        protocolVersion: UInt16, daemonVersion: String, installation: InstallationKind? = nil,
+        processId: Int32? = nil
+    ) {
         self.protocolVersion = protocolVersion
         self.daemonVersion = daemonVersion
+        self.installation = installation
+        self.processId = processId
     }
 }
 
@@ -67,6 +76,8 @@ public struct SessionCreatedReply: Codable, Sendable, Equatable {
 public struct FailureReply: Codable, Sendable, Equatable, Error {
     public enum Code: String, Codable, Sendable {
         case workingDirectoryNotFound
+        /// The folder exists but the daemon cannot enter it (permissions or macOS privacy).
+        case workingDirectoryNotAccessible
         case sessionNotFound
         case invalidSize
         case launchFailed
@@ -107,6 +118,9 @@ public enum ClientMessage: Sendable, Equatable {
     /// The client has seen that the session ended; the daemon may forget it.
     case acknowledgeExit(sessionId: UUID)
     case setTheme(ThemeColors)
+    /// Ends every terminal and stops the daemon. Accepted even before `hello`, and its
+    /// encoding never changes: it is how an app replaces a daemon too old to talk to.
+    case shutdown
 }
 
 /// Messages the daemon sends to the app.

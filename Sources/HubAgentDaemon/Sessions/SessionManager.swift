@@ -125,6 +125,8 @@ final class SessionManager: @unchecked Sendable {
         for session in sessions.values { session.terminate() }
     }
 
+    var runningSessionCount: Int { sessions.values.filter { $0.state == .running }.count }
+
     private func observe(_ session: Session) {
         let sessionId = session.id
         session.onOutput = { [weak self] bytes in
@@ -147,7 +149,20 @@ final class SessionManager: @unchecked Sendable {
             return FailureReply(
                 code: .workingDirectoryNotFound, message: request.workingDirectory, requestId: request.requestId)
         }
-        return nil
+        return Self.canEnter(request.workingDirectory)
+            ? nil
+            : FailureReply(
+                code: .workingDirectoryNotAccessible, message: request.workingDirectory, requestId: request.requestId)
+    }
+
+    /// Opens the folder the way the new shell will have to. A folder that exists but
+    /// cannot be entered would otherwise leave the shell, silently, wherever the
+    /// daemon itself happens to be.
+    private static func canEnter(_ directory: String) -> Bool {
+        let descriptor = open(directory, O_RDONLY | O_DIRECTORY | O_CLOEXEC)
+        guard descriptor >= 0 else { return false }
+        close(descriptor)
+        return access(directory, X_OK) == 0
     }
 
     private func notFound(_ sessionId: UUID) -> FailureReply {

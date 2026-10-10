@@ -160,6 +160,7 @@ private final class DaemonProcess {
     deinit {
         if process.isRunning { kill(process.processIdentifier, SIGKILL) }
         unlink(socketPath)
+        unlink(socketPath + ".lock")
     }
 }
 
