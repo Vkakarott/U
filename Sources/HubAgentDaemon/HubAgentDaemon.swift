@@ -29,9 +29,12 @@ enum HubAgentDaemon {
             logger.fault("cannot start: \(String(describing: error), privacy: .public)")
             exit(EXIT_FAILURE)
         }
-        let stopSources = [SIGTERM, SIGINT].map { stopSource(for: $0, queue: queue, server: server) }
-        withExtendedLifetime(stopSources) { dispatchMain() }
+        stopSources = [SIGTERM, SIGINT].map { stopSource(for: $0, queue: queue, server: server) }
+        dispatchMain()
     }
+
+    /// Kept for the life of the process: a released signal source stops delivering.
+    private nonisolated(unsafe) static var stopSources: [DispatchSourceSignal] = []
 
     /// Stopping the daemon ends every terminal, so it only happens on an explicit signal.
     private static func stopSource(

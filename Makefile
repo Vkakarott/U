@@ -15,7 +15,7 @@ help:
 		'make lint        Run Swift format lint and SwiftLint when installed' \
 		'make check       Build, test, and lint' \
 		'make run         Run the empty app scaffold' \
-		'make run-daemon  Run the no-op daemon scaffold'
+		'make run-daemon  Run the daemon, optimized, on the provisional development socket'
 
 build:
 	swift build
@@ -39,5 +39,6 @@ check: build test lint
 run:
 	swift run HubAgentApp
 
+# Always optimized: an unoptimized SwiftTerm parses terminal output about 30 times slower.
 run-daemon:
-	swift run HubAgentDaemon
+	swift run -c release HubAgentDaemon
