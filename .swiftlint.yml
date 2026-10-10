@@ -2,6 +2,10 @@ included:
   - Sources
   - Tests
 
+disabled_rules:
+  # Terminal output is not guaranteed to be valid UTF-8; lossy decoding is intended.
+  - optional_data_string_conversion
+
 excluded:
   - .build
 
