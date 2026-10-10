@@ -56,7 +56,7 @@ public enum UnixSocket {
     public static func accept(listener: Int32) -> Int32? {
         let descriptor = Darwin.accept(listener, nil, nil)
         guard descriptor >= 0 else { return nil }
-        disableSigpipe(descriptor)
+        configure(descriptor)
         return descriptor
     }
 
@@ -95,13 +95,16 @@ public enum UnixSocket {
     private static func makeSocket() throws -> Int32 {
         let descriptor = socket(AF_UNIX, SOCK_STREAM, 0)
         guard descriptor >= 0 else { throw SocketError.system(operation: "socket", code: errno) }
-        disableSigpipe(descriptor)
+        configure(descriptor)
         return descriptor
     }
 
-    private static func disableSigpipe(_ descriptor: Int32) {
+    /// Writing to a closed peer must fail instead of killing the process, and the
+    /// socket must not leak into the programs started inside terminals.
+    private static func configure(_ descriptor: Int32) {
         var enabled: Int32 = 1
         setsockopt(descriptor, SOL_SOCKET, SO_NOSIGPIPE, &enabled, socklen_t(MemoryLayout<Int32>.size))
+        _ = fcntl(descriptor, F_SETFD, FD_CLOEXEC)
     }
 
     private static func makeAddress(path: String) throws -> sockaddr_un {

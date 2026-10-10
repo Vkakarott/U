@@ -59,6 +59,22 @@ private func temporarySocketPath() -> String {
         #expect(throws: SocketError.closed) { try client.receive(timeout: 2) }
     }
 
+    @Test func socketsAreNotInheritedByStartedPrograms() throws {
+        let path = temporarySocketPath()
+        let listener = try UnixSocket.listen(path: path)
+        defer {
+            close(listener)
+            unlink(path)
+        }
+        let client = try UnixSocket.connect(path: path)
+        defer { close(client) }
+        let accepted = try #require(UnixSocket.accept(listener: listener))
+        defer { close(accepted) }
+        for descriptor in [listener, client, accepted] {
+            #expect(fcntl(descriptor, F_GETFD) & FD_CLOEXEC != 0)
+        }
+    }
+
     @Test func refusesPathsThatDoNotFit() {
         let path = "/tmp/" + String(repeating: "x", count: 200)
         #expect(throws: SocketError.pathTooLong(path)) { try UnixSocket.listen(path: path) }
