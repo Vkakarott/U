@@ -96,4 +96,26 @@ private func temporarySocketPath() -> String {
         UnixSocket.setNonBlocking(client)
         #expect(UnixSocket.read(client) == .wouldBlock)
     }
+
+    @Test func closingWakesAReaderOnAnotherThread() throws {
+        let path = temporarySocketPath()
+        let listener = try UnixSocket.listen(path: path)
+        defer {
+            close(listener)
+            unlink(path)
+        }
+        let client = try BlockingConnection(path: path)
+        let accepted = try #require(UnixSocket.accept(listener: listener))
+        defer { close(accepted) }
+        let finished = DispatchSemaphore(value: 0)
+        Thread.detachNewThread {
+            _ = try? client.receive(timeout: 60)
+            finished.signal()
+        }
+        Thread.sleep(forTimeInterval: 0.1)
+        client.close()
+        #expect(finished.wait(timeout: .now() + 5) == .success, "the reader stayed blocked after close")
+        #expect(throws: SocketError.closed) { try client.receive(timeout: 1) }
+        #expect(throws: SocketError.closed) { try client.send([1]) }
+    }
 }

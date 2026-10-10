@@ -92,6 +92,18 @@ public enum UnixSocket {
         return poll(&entry, 1, milliseconds) > 0
     }
 
+    /// Waits until the descriptor is readable or `wake` becomes readable. Returns true
+    /// only when the descriptor itself has something to read.
+    public static func waitReadable(_ descriptor: Int32, orWoken wake: Int32, timeout: TimeInterval) -> Bool {
+        var entries = [
+            pollfd(fd: descriptor, events: Int16(POLLIN), revents: 0),
+            pollfd(fd: wake, events: Int16(POLLIN), revents: 0),
+        ]
+        let milliseconds = Int32(max(0, min(timeout, 86_400)) * 1000)
+        guard poll(&entries, 2, milliseconds) > 0 else { return false }
+        return entries[1].revents == 0 && entries[0].revents != 0
+    }
+
     private static func makeSocket() throws -> Int32 {
         let descriptor = socket(AF_UNIX, SOCK_STREAM, 0)
         guard descriptor >= 0 else { throw SocketError.system(operation: "socket", code: errno) }
