@@ -11,27 +11,47 @@ let package = Package(
         .executable(name: "HubAgentApp", targets: ["HubAgentApp"]),
         .executable(name: "HubAgentDaemon", targets: ["HubAgentDaemon"])
     ],
+    dependencies: [
+        // Pinned exactly: the daemon's screen restoration depends on this version's behavior.
+        .package(url: "https://github.com/migueldeicaza/SwiftTerm.git", exact: "1.99.0")
+    ],
     targets: [
         .target(name: "HubAgentShared"),
-        .executableTarget(
-            name: "HubAgentApp",
+        .target(
+            name: "HubAgentTransport",
             dependencies: ["HubAgentShared"]
         ),
         .executableTarget(
+            name: "HubAgentApp",
+            dependencies: ["HubAgentShared", "HubAgentTransport"]
+        ),
+        .executableTarget(
             name: "HubAgentDaemon",
-            dependencies: ["HubAgentShared"]
+            dependencies: [
+                "HubAgentShared",
+                "HubAgentTransport",
+                .product(name: "SwiftTerm", package: "SwiftTerm")
+            ]
         ),
         .testTarget(
             name: "HubAgentSharedTests",
             dependencies: ["HubAgentShared"]
         ),
         .testTarget(
+            name: "HubAgentTransportTests",
+            dependencies: ["HubAgentTransport"]
+        ),
+        .testTarget(
             name: "HubAgentAppTests",
-            dependencies: ["HubAgentApp"]
+            dependencies: ["HubAgentApp", "HubAgentTransport"]
         ),
         .testTarget(
             name: "HubAgentDaemonTests",
-            dependencies: ["HubAgentDaemon"]
+            dependencies: [
+                "HubAgentDaemon",
+                "HubAgentTransport",
+                .product(name: "SwiftTerm", package: "SwiftTerm")
+            ]
         )
     ]
 )
