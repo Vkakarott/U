@@ -19,6 +19,17 @@ private func temporarySocketPath() -> String {
         #expect((attributes[.posixPermissions] as? NSNumber)?.intValue == 0o600)
     }
 
+    @Test func listeningLeavesTheProcessUmaskAlone() throws {
+        let before = umask(0o022)
+        defer { umask(before) }
+        let path = temporarySocketPath()
+        let listener = try UnixSocket.listen(path: path)
+        close(listener)
+        unlink(path)
+        let after = umask(0o022)
+        #expect(after == 0o022)
+    }
+
     @Test func carriesBytesBothWays() throws {
         let path = temporarySocketPath()
         let listener = try UnixSocket.listen(path: path)

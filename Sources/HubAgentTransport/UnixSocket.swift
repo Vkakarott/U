@@ -24,13 +24,16 @@ public enum WriteResult: Equatable, Sendable {
 public enum UnixSocket {
     /// Creates a listening socket readable and writable only by its owner. Whoever can
     /// connect can run commands as the user, so the mode is part of the contract.
+    ///
+    /// The mode is set between `bind` and `listen`: nobody can connect before `listen`,
+    /// so there is no window with looser permissions. The process umask is deliberately
+    /// left alone, because it is process-wide and every terminal started meanwhile
+    /// would inherit the temporary value.
     public static func listen(path: String, backlog: Int32 = 16) throws -> Int32 {
         var address = try makeAddress(path: path)
         unlink(path)
         let descriptor = try makeSocket()
-        let previousMask = umask(0o177)
         let bound = withSocketAddress(&address) { Darwin.bind(descriptor, $0, $1) }
-        umask(previousMask)
         guard bound == 0, chmod(path, 0o600) == 0, Darwin.listen(descriptor, backlog) == 0 else {
             let code = errno
             close(descriptor)
