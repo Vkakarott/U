@@ -64,7 +64,7 @@ public struct SessionCreatedReply: Codable, Sendable, Equatable {
     }
 }
 
-public struct FailureReply: Codable, Sendable, Equatable {
+public struct FailureReply: Codable, Sendable, Equatable, Error {
     public enum Code: String, Codable, Sendable {
         case workingDirectoryNotFound
         case sessionNotFound
