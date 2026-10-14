@@ -3,7 +3,7 @@ import HubAgentShared
 import HubAgentTransport
 
 /// What the app found when it reached for its daemon.
-enum DaemonAvailability {
+enum DaemonAvailability: Sendable {
     /// Connected to a daemon of this same build.
     case ready(DaemonClient, WelcomeReply)
     /// Connected and usable, but the daemon is from another build. Replacing it ends
